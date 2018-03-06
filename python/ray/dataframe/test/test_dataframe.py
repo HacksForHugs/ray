@@ -247,6 +247,7 @@ def test_int_dataframe():
         test_insert(ray_df, pandas_df, 1, "New Column", ray_df[key])
         test_insert(ray_df, pandas_df, 4, "New Column", ray_df[key])
 
+    test___setitem__(ray_df, pandas_df)
 
 def test_float_dataframe():
 
@@ -1915,11 +1916,35 @@ def test___getitem__(ray_df, pd_df):
     assert pd_col.equals(ray_col)
 
 
-def test___setitem__():
-    ray_df = create_test_dataframe()
+@pytest.fixture
+def test___setitem__(ray_df, pandas_df):
+    # test column name key and single value
+    col0 = pandas_df.columns[0]
+    val = 1
+    ray_df[col0] = val
+    pandas_df[col0] = val
+    assert ray_df_equals_pandas(ray_df, pandas_df)
 
-    with pytest.raises(NotImplementedError):
-        ray_df.__setitem__(None, None)
+    # test column name key an array like value
+    col1 = pandas_df.columns[0]
+    array = ['a', 'b', 'c', 'd']
+    ray_df[col1] = array
+    print('ray_df', ray_df._df)
+    pandas_df[col1] = array
+    assert ray_df_equals_pandas(ray_df, pandas_df)
+
+    # test setting a new column to array like value
+    new_col = 'new_col'
+    new_val = [1, 2, 3, 4]
+    ray_df[new_col] = new_val
+    pandas_df[new_col] = new_val
+    assert ray_df_equals_pandas(ray_df, pandas_df)
+
+    # test setting a new column to single value
+    new_col = 'another_new_col'
+    new_val = 'no'
+    ray_df[new_col] = new_val
+    pandas_df[new_col] = new_val
 
 
 def test___len__():

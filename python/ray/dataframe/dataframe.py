@@ -2100,9 +2100,40 @@ class DataFrame(object):
         return to_pandas(result_column_chunks)
 
     def __setitem__(self, key, value):
-        raise NotImplementedError(
-            "To contribute to Pandas on Ray, please visit "
-            "github.com/ray-project/ray.")
+        self._lengths = \
+            ray.get([_deploy_func.remote(_get_lengths, d) for d in self._df])
+
+        def value_helper(i):
+            # given partition number, return slice of value corresponding to this partition
+            start = sum(self._lengths[:i])
+            end = start + self.lengths[i]
+            return value[start:end]
+
+        def set_array(df, key, i):
+            # set array like values
+            _df = df.copy()
+            _df.__setitem__(key, value_helper(i))
+            return _df
+
+        def set_single_val(df, key, value):
+            # set single values
+            _df = df.copy()
+            _df.__setitem__(key, value)
+            return _df
+
+
+        if isinstance(key, (pd.Series, pd.DataFrame, list, np.ndarray)):
+            raise NotImplementedError("Not yet implemented.")
+        if isinstance(value, (pd.Series, pd.DataFrame, list, np.ndarray)):
+            new_df = [_deploy_func.remote(
+                lambda df: set_array(df, key, value_helper(i)), part)
+            for i, part in enumerate(self._df)]
+        else:
+            new_df = [_deploy_func.remote(
+                lambda df: set_single_val(df, key, value), part)
+             for part in self._df]
+
+        self._df = new_df
 
     def __len__(self):
         raise NotImplementedError(
